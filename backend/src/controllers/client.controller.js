@@ -1,44 +1,74 @@
 import asyncHandler from 'express-async-handler';
 import Client from '../models/client.model.js';
+import mongoose from 'mongoose';
 
 // @desc    Create new client
 // @route   POST /api/clients
 // @access  Private
 export const createClient = asyncHandler(async (req, res) => {
-  const {
-    name,
-    email,
-    phone,
-    panNumber,
-    dateOfBirth,
-    riskProfile,
-    investmentGoals,
-    notes
-  } = req.body;
+  try {
+    console.log('Creating new client - Request received');
+    console.log('Request body:', req.body);
 
-  // Check if client already exists with the same PAN
-  const clientExists = await Client.findOne({ panNumber });
-  if (clientExists) {
-    res.status(400);
-    throw new Error('Client with this PAN number already exists');
+    const { name, email } = req.body;
+
+    // Validate required fields
+    if (!name || !email) {
+      console.log('Validation failed - Missing required fields');
+      res.status(400);
+      throw new Error('Name and email are required');
+    }
+
+    // Check database connection
+    if (mongoose.connection.readyState !== 1) {
+      console.error('Database connection is not ready');
+      console.log('Connection state:', mongoose.connection.readyState);
+      res.status(500);
+      throw new Error('Database connection is not ready');
+    }
+
+    console.log('Checking for existing client with email:', email);
+    // Check if client already exists with the same email
+    const clientExists = await Client.findOne({ email });
+    if (clientExists) {
+      console.log('Client already exists with email:', email);
+      res.status(400);
+      throw new Error('Client with this email already exists');
+    }
+
+    console.log('Creating new client document');
+    const client = await Client.create({
+      name,
+      email,
+      advisor: req.user._id // Add advisor field
+    });
+
+    console.log('Client creation result:', client ? 'Success' : 'Failed', 'advisorId:', req.user._id);
+    if (client) {
+      console.log('Client created successfully:', client._id);
+      res.status(201).json({
+        success: true,
+        data: client
+      });
+    } else {
+      console.log('Failed to create client - No error but no client returned');
+      res.status(400);
+      throw new Error('Invalid client data');
+    }
+  } catch (error) {
+    console.error('Client creation error:');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Full error:', error);
+    
+    // Send detailed error response
+    res.status(error.status || 500).json({
+      success: false,
+      message: 'Failed to create client',
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error : undefined
+    });
   }
-
-  const client = await Client.create({
-    name,
-    email,
-    phone,
-    panNumber,
-    dateOfBirth,
-    riskProfile,
-    investmentGoals,
-    notes,
-    advisor: req.user._id
-  });
-
-  res.status(201).json({
-    success: true,
-    data: client
-  });
 });
 
 // @desc    Get all clients for logged in advisor

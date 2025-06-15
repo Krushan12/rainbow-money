@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useClients } from '../contexts/ClientContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Button } from '../components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../components/ui/form";
@@ -19,10 +20,12 @@ import {
   ChevronUp, 
   Mail,
   Calendar,
-  UserPlus 
+  UserPlus,
+  Trash2 
 } from 'lucide-react';
 import { Card } from '../components/ui/card';
 import PortfolioUpload from '../components/Upload/PortfolioUpload';
+import { useToast } from '../components/ui/use-toast';
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -30,12 +33,15 @@ const formSchema = z.object({
 });
 
 export default function ClientsPage() {
+  const { toast } = useToast();
   const navigate = useNavigate();
-  const { clients, addClient } = useClients();
+  const { clients, addClient, removeClient } = useClients();
+  const { isAuthenticated } = useAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState(null);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [uploadClientId, setUploadClientId] = useState(null);
+  const [deleteDialogClient, setDeleteDialogClient] = useState(null);
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -44,6 +50,12 @@ export default function ClientsPage() {
       email: "",
     },
   });
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/auth/login');
+    }
+  }, [isAuthenticated, navigate]);
 
   const onSubmit = (values) => {
     addClient(values);
@@ -64,6 +76,28 @@ export default function ClientsPage() {
   const handleUploadComplete = () => {
     setIsUploadDialogOpen(false);
     setUploadClientId(null);
+  };
+
+  const handleDeleteClick = (client, e) => {
+    e.stopPropagation();
+    setDeleteDialogClient(client);
+  };
+
+  const confirmDelete = async () => {
+    try {
+      await removeClient(deleteDialogClient.id);
+      toast({
+        title: 'Client Deleted',
+        description: 'The client has been successfully removed.',
+      });
+      setDeleteDialogClient(null);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete client',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -135,7 +169,7 @@ export default function ClientsPage() {
                   transition={{ duration: 0.2 }}
                   className="border-t"
                 >
-                  <div className="grid grid-cols-3 divide-x">
+                  <div className="grid grid-cols-4 divide-x">
                     <button
                       onClick={(e) => handleUploadClick(client.id, e)}
                       className="p-4 flex flex-col items-center gap-2 text-sm font-medium hover:bg-accent/50 transition-colors"
@@ -162,6 +196,13 @@ export default function ClientsPage() {
                     >
                       <FileText className="h-5 w-5 text-primary" />
                       Reports
+                    </button>
+                    <button
+                      onClick={(e) => handleDeleteClick(client, e)}
+                      className="p-4 flex flex-col items-center gap-2 text-sm font-medium hover:bg-accent/50 transition-colors text-destructive hover:text-destructive/90"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                      Delete
                     </button>
                   </div>
                 </motion.div>
@@ -241,6 +282,32 @@ export default function ClientsPage() {
         onClose={handleUploadComplete}
         clientId={uploadClientId}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteDialogClient} onOpenChange={() => setDeleteDialogClient(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Client</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {deleteDialogClient?.name}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setDeleteDialogClient(null)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmDelete}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -15,15 +15,22 @@ const allowedOrigins = [
   'https://rainbow-money.vercel.app', // Production frontend
 ];
 
-// Middleware
+// Enhanced CORS error handling
 app.use(cors({
   origin: function(origin, callback) {
+    console.log('Incoming request from origin:', origin);
+    
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log('No origin header, allowing request');
+      return callback(null, true);
+    }
     
     if (allowedOrigins.includes(origin)) {
+      console.log('Origin allowed:', origin);
       callback(null, true);
     } else {
+      console.log('Origin not allowed:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -31,8 +38,23 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
-app.use(express.json());
+
+// Body parser with increased limit and error handling
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Request logging
 app.use(morgan('dev'));
+
+// Additional request logging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log('Request headers:', req.headers);
+  if (req.body && Object.keys(req.body).length) {
+    console.log('Request body:', req.body);
+  }
+  next();
+});
 
 // Routes imports
 import authRoutes from './routes/auth.routes.js';
@@ -40,9 +62,23 @@ import clientRoutes from './routes/client.routes.js';
 import portfolioRoutes from './routes/portfolio.routes.js';
 import analysisRoutes from './routes/analysis.routes.js';
 
-// Health check route
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Server is running' });
+// Health check route with DB status
+app.get('/health', async (req, res) => {
+  try {
+    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+    res.json({
+      status: 'ok',
+      message: 'Server is running',
+      database: dbStatus,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Health check failed',
+      error: error.message
+    });
+  }
 });
 
 // Route middleware
@@ -53,36 +89,26 @@ app.use('/api/analysis', analysisRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
+  console.error('Global error handler caught:', err);
+  
+  const statusCode = err.statusCode || 500;
+  const message = err.message || 'Internal Server Error';
+  
+  res.status(statusCode).json({
     success: false,
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 });
 
-const PORT = process.env.PORT || 5000;
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-  process.exit(1);
-});
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection:', err);
-  process.exit(1);
-});
-
-// Connect to MongoDB and start server
+// Initialize database connection
+console.log('Initializing server...');
 connectDB().then(() => {
-  const server = app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
   });
-
-  // Handle server errors
-  server.on('error', (err) => {
-    console.error('Server error:', err);
-  });
+}).catch(error => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
 });

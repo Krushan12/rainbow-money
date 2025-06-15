@@ -114,26 +114,24 @@ export const login = asyncHandler(async (req, res) => {
       maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     });
 
-    // Update last login time
-    user.lastLogin = new Date();
-    await user.save({ validateBeforeSave: false });
+    // Add token to valid tokens array
+    user.tokens.push({ token });
+    await user.save();
 
-    // Return user data
-    res.status(200).json({
+    // Send response with user data and token
+    res.json({
       success: true,
       data: {
         _id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        token // Include token in response
       }
     });
   } catch (error) {
-    res.status(error.status || 500).json({
-      success: false,
-      message: 'Something went wrong!',
-      error: error.message
-    });
+    // Re-throw error to be handled by error middleware
+    throw error;
   }
 });
 

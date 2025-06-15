@@ -18,50 +18,42 @@ const clientSchema = new mongoose.Schema({
   },
   panNumber: {
     type: String,
-    required: [true, 'PAN number is required'],
-    unique: true,
     trim: true,
     uppercase: true,
     validate: {
       validator: function(v) {
+        if (!v) return true; // Allow empty PAN number
         return /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v);
       },
       message: 'Please enter a valid PAN number'
     }
   },
   dateOfBirth: {
-    type: Date,
-    required: [true, 'Date of birth is required']
+    type: Date
   },
   riskProfile: {
     type: String,
     enum: ['Conservative', 'Moderate', 'Aggressive'],
     default: 'Moderate'
   },
-  investmentGoals: [{
-    type: String,
-    enum: ['Retirement', 'Education', 'Home', 'Wealth Creation', 'Tax Saving', 'Other']
-  }],
-  advisor: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+  investmentGoals: {
+    type: [String],
+    default: []
   },
-  status: {
-    type: String,
-    enum: ['Active', 'Inactive', 'Pending'],
-    default: 'Active'
+  portfolioData: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
+  notes: {
+    type: String
   },
   lastUpdated: {
     type: Date,
     default: Date.now
   },
-  notes: {
-    type: String
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
 }, {
   timestamps: true,

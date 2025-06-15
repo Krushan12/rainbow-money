@@ -3,14 +3,18 @@ import apiConfig, { getAuthHeader } from '../config/api';
 class ApiService {
     static async request(endpoint, options = {}) {
         const url = `${apiConfig.baseURL}${endpoint}`;
+        const token = localStorage.getItem('token');
         const headers = {
             'Content-Type': 'application/json',
-            ...getAuthHeader(),
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
             ...options.headers
         };
 
         try {
-            console.log('Making request to:', url, 'with options:', { ...options, headers });
+            console.log('Making request to:', url, 'with options:', { 
+                ...options, 
+                headers: { ...headers, Authorization: token ? 'Bearer [REDACTED]' : undefined } 
+            });
             
             const response = await fetch(url, {
                 ...options,
@@ -36,6 +40,15 @@ class ApiService {
             console.log('Response:', data);
 
             if (!response.ok) {
+                // Handle authentication errors
+                if (response.status === 401) {
+                    // Clear invalid token
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    // Redirect to login
+                    window.location.href = '/auth/login';
+                    throw new Error('Please login to continue');
+                }
                 throw new Error(data.message || data.error || 'API request failed');
             }
 
@@ -75,6 +88,24 @@ class ApiService {
             method: 'POST',
             body: formData,
             headers: {} // Override the default Content-Type
+        });
+    }
+
+    // Client endpoints
+    static async createClient(clientData) {
+        return this.request(apiConfig.endpoints.clients, {
+            method: 'POST',
+            body: JSON.stringify(clientData)
+        });
+    }
+
+    static async getClients() {
+        return this.request(apiConfig.endpoints.clients);
+    }
+
+    static async deleteClient(clientId) {
+        return this.request(`${apiConfig.endpoints.clients}/${clientId}`, {
+            method: 'DELETE'
         });
     }
 }
