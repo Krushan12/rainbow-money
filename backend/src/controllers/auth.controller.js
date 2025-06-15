@@ -57,10 +57,14 @@ export const register = asyncHandler(async (req, res) => {
 
       // Return user data (without password)
       res.status(201).json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
+        success: true,
+        token: token,
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role
+        }
       });
     }
   } catch (error) {
@@ -114,19 +118,15 @@ export const login = asyncHandler(async (req, res) => {
       maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     });
 
-    // Add token to valid tokens array
-    user.tokens.push({ token });
-    await user.save();
-
-    // Send response with user data and token
+    // Return user data and token
     res.json({
       success: true,
-      data: {
+      token: token,
+      user: {
         _id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role,
-        token // Include token in response
+        role: user.role
       }
     });
   } catch (error) {
