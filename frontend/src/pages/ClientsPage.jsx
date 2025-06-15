@@ -1,240 +1,161 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useClients } from '../contexts/ClientContext';
 import { useAuth } from '../contexts/AuthContext';
+import ClientCard from '../components/Dashboard/ClientCard';
+import ClientCardSkeleton from '../components/Dashboard/ClientCardSkeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Button } from '../components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../components/ui/form";
 import { Input } from "../components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Upload, 
-  User, 
-  BarChart2, 
-  FileText, 
-  Plus, 
-  ChevronDown, 
-  ChevronUp, 
-  Mail,
-  Calendar,
-  UserPlus,
-  Trash2 
-} from 'lucide-react';
-import { Card } from '../components/ui/card';
-import PortfolioUpload from '../components/Upload/PortfolioUpload';
 import { useToast } from '../components/ui/use-toast';
+import { Plus, Users } from 'lucide-react';
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email address"),
+  accessType: z.enum(['FULL', 'LIMITED']),
+  riskProfile: z.enum(['Conservative', 'Moderate', 'Aggressive']),
+  panNumber: z.string().optional()
+    .refine((val) => {
+      if (!val) return true;
+      return /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(val);
+    }, "Invalid PAN number format"),
 });
 
 export default function ClientsPage() {
-  const { toast } = useToast();
   const navigate = useNavigate();
-  const { clients, addClient, removeClient } = useClients();
-  const { isAuthenticated } = useAuth();
+  const { clients, loading, addClient, removeClient } = useClients();
+  const { user } = useAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [selectedClientId, setSelectedClientId] = useState(null);
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
-  const [uploadClientId, setUploadClientId] = useState(null);
   const [deleteDialogClient, setDeleteDialogClient] = useState(null);
+  const { toast } = useToast();
 
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       email: "",
-    },
+      accessType: "LIMITED",
+      riskProfile: "Moderate",
+      panNumber: ""
+    }
   });
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/auth/login');
-    }
-  }, [isAuthenticated, navigate]);
-
-  const onSubmit = (values) => {
-    addClient(values);
-    form.reset();
-    setIsAddDialogOpen(false);
-  };
-
-  const handleClientClick = (clientId) => {
-    setSelectedClientId(clientId === selectedClientId ? null : clientId);
-  };
-
-  const handleUploadClick = (clientId, e) => {
-    e.stopPropagation();
-    setUploadClientId(clientId);
-    setIsUploadDialogOpen(true);
-  };
-
-  const handleUploadComplete = () => {
-    setIsUploadDialogOpen(false);
-    setUploadClientId(null);
-  };
-
-  const handleDeleteClick = (client, e) => {
-    e.stopPropagation();
-    setDeleteDialogClient(client);
-  };
-
-  const confirmDelete = async () => {
+  const onSubmit = async (values) => {
     try {
-      await removeClient(deleteDialogClient.id);
+      await addClient(values);
       toast({
-        title: 'Client Deleted',
-        description: 'The client has been successfully removed.',
+        title: "Success",
+        description: "Client added successfully",
+      });
+      form.reset();
+      setIsAddDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add client",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAction = async (action, client) => {
+    switch (action) {
+      case 'upload':
+        if (client.accessType === 'FULL') {
+          // Navigate to MF Central integration page
+          navigate(`/clients/${client._id}/integrate`);
+        } else {
+          // Navigate to PDF upload page
+          navigate(`/clients/${client._id}/upload`);
+        }
+        break;
+      case 'dashboard':
+        navigate(`/clients/${client._id}/dashboard`);
+        break;
+      case 'report':
+        navigate(`/clients/${client._id}/report`);
+        break;
+      case 'delete':
+        setDeleteDialogClient(client);
+        break;
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await removeClient(deleteDialogClient._id);
+      toast({
+        title: "Success",
+        description: "Client deleted successfully",
       });
       setDeleteDialogClient(null);
     } catch (error) {
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to delete client',
-        variant: 'destructive',
+        title: "Error",
+        description: error.message || "Failed to delete client",
+        variant: "destructive",
       });
     }
   };
 
+  const watchAccessType = form.watch("accessType");
+
   return (
-    <div className="space-y-8">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-lg shadow-sm">
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Clients</h1>
-          <p className="text-muted-foreground mt-1">Manage your clients and their portfolio data</p>
+          <h1 className="text-2xl font-bold">Clients</h1>
+          <p className="text-gray-600">Manage your client portfolios</p>
         </div>
-        <Button 
-          size="lg"
-          onClick={() => setIsAddDialogOpen(true)} 
-          className="md:w-auto w-full flex items-center gap-2 bg-primary hover:bg-primary/90 text-white"
-        >
-          <UserPlus className="h-5 w-5" />
-          Add New Client
+        <Button onClick={() => setIsAddDialogOpen(true)} className="flex items-center gap-2">
+          <Plus className="w-4 h-4" />
+          Add Client
         </Button>
       </div>
 
-      {/* Clients Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {clients.map((client) => (
-          <Card
-            key={client.id}
-            className={`overflow-hidden transition-all duration-200 ${
-              selectedClientId === client.id ? 'ring-2 ring-primary' : ''
-            }`}
-          >
-            {/* Client Header */}
-            <div
-              onClick={() => handleClientClick(client.id)}
-              className="p-6 cursor-pointer hover:bg-accent/50 transition-colors"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex gap-4">
-                  <div className="relative">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User className="h-6 w-6 text-primary" />
-                    </div>
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                      <ChevronDown className={`h-4 w-4 text-white transition-transform ${
-                        selectedClientId === client.id ? 'rotate-180' : ''
-                      }`} />
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg leading-none">{client.name}</h3>
-                    <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                      <Mail className="h-4 w-4" />
-                      {client.email}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
-                      Added on {new Date().toLocaleDateString()}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Actions Panel */}
-            <AnimatePresence>
-              {selectedClientId === client.id && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="border-t"
-                >
-                  <div className="grid grid-cols-4 divide-x">
-                    <button
-                      onClick={(e) => handleUploadClick(client.id, e)}
-                      className="p-4 flex flex-col items-center gap-2 text-sm font-medium hover:bg-accent/50 transition-colors"
-                    >
-                      <Upload className="h-5 w-5 text-primary" />
-                      Upload PDF
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/clients/${client.id}/dashboard`);
-                      }}
-                      className="p-4 flex flex-col items-center gap-2 text-sm font-medium hover:bg-accent/50 transition-colors"
-                    >
-                      <BarChart2 className="h-5 w-5 text-primary" />
-                      Dashboard
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/clients/${client.id}/reports`);
-                      }}
-                      className="p-4 flex flex-col items-center gap-2 text-sm font-medium hover:bg-accent/50 transition-colors"
-                    >
-                      <FileText className="h-5 w-5 text-primary" />
-                      Reports
-                    </button>
-                    <button
-                      onClick={(e) => handleDeleteClick(client, e)}
-                      className="p-4 flex flex-col items-center gap-2 text-sm font-medium hover:bg-accent/50 transition-colors text-destructive hover:text-destructive/90"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                      Delete
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </Card>
-        ))}
-
-        {/* Add Client Card */}
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => setIsAddDialogOpen(true)}
-          className="rounded-lg border-2 border-dashed p-6 flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-primary/50 hover:bg-accent/50 transition-colors"
-        >
-          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-            <UserPlus className="h-6 w-6 text-primary" />
-          </div>
-          <div className="text-center">
-            <h3 className="font-semibold">Add New Client</h3>
-            <p className="text-sm text-muted-foreground mt-1">Create a new client profile</p>
-          </div>
-        </motion.div>
-      </div>
+      {loading ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <ClientCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : clients.length === 0 ? (
+        <div className="text-center py-12">
+          <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">No clients yet</h3>
+          <p className="text-gray-600 mb-4">
+            Get started by adding your first client
+          </p>
+          <Button onClick={() => setIsAddDialogOpen(true)} className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Add Client
+          </Button>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {clients.map((client) => (
+            <ClientCard
+              key={client._id}
+              client={client}
+              onAction={handleAction}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Add Client Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Add New Client</DialogTitle>
             <DialogDescription>
-              Add a new client to manage their portfolio data.
+              Enter client details to create a new portfolio
             </DialogDescription>
           </DialogHeader>
 
@@ -247,13 +168,12 @@ export default function ClientsPage() {
                   <FormItem>
                     <FormLabel>Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Client name" {...field} />
+                      <Input placeholder="Enter client name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={form.control}
                 name="email"
@@ -261,13 +181,75 @@ export default function ClientsPage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="client@example.com" type="email" {...field} />
+                      <Input placeholder="Enter client email" type="email" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
+              <FormField
+                control={form.control}
+                name="accessType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Access Type</FormLabel>
+                    <Select defaultValue={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select access type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="FULL">Full Access (MF Central)</SelectItem>
+                        <SelectItem value="LIMITED">Limited Access (PDF Upload)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="riskProfile"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Risk Profile</FormLabel>
+                    <Select defaultValue={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select risk profile" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Conservative">Conservative</SelectItem>
+                        <SelectItem value="Moderate">Moderate</SelectItem>
+                        <SelectItem value="Aggressive">Aggressive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {watchAccessType === "FULL" && (
+                <FormField
+                  control={form.control}
+                  name="panNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>PAN Number</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Enter PAN number"
+                          {...field}
+                          value={field.value ?? ""}
+                          className="uppercase"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <DialogFooter>
                 <Button type="submit">Add Client</Button>
               </DialogFooter>
@@ -276,16 +258,9 @@ export default function ClientsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Portfolio Upload Dialog */}
-      <PortfolioUpload
-        isOpen={isUploadDialogOpen}
-        onClose={handleUploadComplete}
-        clientId={uploadClientId}
-      />
-
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteDialogClient} onOpenChange={() => setDeleteDialogClient(null)}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Client</DialogTitle>
             <DialogDescription>
@@ -293,16 +268,10 @@ export default function ClientsPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setDeleteDialogClient(null)}
-            >
+            <Button variant="outline" onClick={() => setDeleteDialogClient(null)}>
               Cancel
             </Button>
-            <Button 
-              variant="destructive" 
-              onClick={confirmDelete}
-            >
+            <Button variant="destructive" onClick={handleDelete}>
               Delete
             </Button>
           </DialogFooter>

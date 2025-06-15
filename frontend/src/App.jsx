@@ -12,45 +12,37 @@ import ClientsPage from './pages/ClientsPage';
 
 function App() {
   return (
-    <AuthProvider>
-      <ClientProvider>
-        <Router>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/auth" element={<AuthPage />} />
-            
-            {/* Protected routes */}
-            <Route 
-              path="/" 
-              element={
-                <PrivateRoute>
-                  <DashboardLayout />
-                </PrivateRoute>
-              }
-            >
-              <Route index element={<Navigate to="/dashboard" replace />} />
+    <>
+      <AuthProvider>
+        <ClientProvider>
+          <Router>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/auth/*" element={<AuthPage />} />
               
-              {/* Main dashboard that also handles client-specific dashboard */}
-              <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="clients/:clientId/dashboard" element={<DashboardPage />} />
-              
-              {/* Clients routes */}
-              <Route path="clients" element={<ClientsPage />} />
-              
-              {/* Main reports that also handles client-specific reports */}
-              <Route path="reports" element={<ReportDashboard />} />
-              <Route path="clients/:clientId/reports" element={<ReportDashboard />} />
-              
-              <Route path="settings" element={<SettingsPage />} />
-            </Route>
+              {/* Protected routes */}
+              <Route 
+                path="/" 
+                element={
+                  <PrivateRoute>
+                    <DashboardLayout />
+                  </PrivateRoute>
+                }
+              >
+                <Route index element={<DashboardPage />} />
+                <Route path="reports" element={<ReportDashboard />} />
+                <Route path="settings" element={<SettingsPage />} />
+                <Route path="clients" element={<ClientsPage />} />
+              </Route>
 
-            {/* Redirect any unknown routes to dashboard */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-          <Toaster />
-        </Router>
-      </ClientProvider>
-    </AuthProvider>
+              {/* Redirect any unknown routes to auth */}
+              <Route path="*" element={<Navigate to="/auth" replace />} />
+            </Routes>
+          </Router>
+        </ClientProvider>
+      </AuthProvider>
+      <Toaster />
+    </>
   );
 }
 

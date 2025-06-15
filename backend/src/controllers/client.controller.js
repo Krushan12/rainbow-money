@@ -10,7 +10,7 @@ export const createClient = asyncHandler(async (req, res) => {
     console.log('Creating new client - Request received');
     console.log('Request body:', req.body);
 
-    const { name, email } = req.body;
+    const { name, email, phone, panNumber, riskProfile, investmentGoals } = req.body;
 
     // Validate required fields
     if (!name || !email) {
@@ -36,12 +36,19 @@ export const createClient = asyncHandler(async (req, res) => {
       throw new Error('Client with this email already exists');
     }
 
-    console.log('Creating new client document');
-    const client = await Client.create({
+    // Create client with validated data
+    const clientData = {
       name,
       email,
-      advisor: req.user._id // Add advisor field
-    });
+      advisor: req.user._id,
+      riskProfile: riskProfile || 'Moderate',
+      ...(phone && { phone }),
+      ...(panNumber && { panNumber }),
+      ...(investmentGoals && { investmentGoals })
+    };
+
+    console.log('Creating new client document');
+    const client = await Client.create(clientData);
 
     console.log('Client creation result:', client ? 'Success' : 'Failed', 'advisorId:', req.user._id);
     if (client) {
@@ -61,6 +68,14 @@ export const createClient = asyncHandler(async (req, res) => {
     console.error('Error message:', error.message);
     console.error('Full error:', error);
     
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      res.status(400);
+      if (error.keyPattern.email) {
+        throw new Error('Email already exists');
+      }
+    }
+    
     // Send detailed error response
     res.status(error.status || 500).json({
       success: false,
@@ -71,39 +86,49 @@ export const createClient = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Get all clients for logged in advisor
+// @desc    Get all clients for an advisor
 // @route   GET /api/clients
 // @access  Private
 export const getClients = asyncHandler(async (req, res) => {
-  const clients = await Client.find({ advisor: req.user._id })
-    .select('-__v')
-    .sort('-createdAt');
+  try {
+    const clients = await Client.find({ advisor: req.user._id })
+      .select('name email accessType portfolioSource riskProfile lastPortfolioUpdate')
+      .sort('-createdAt');
 
-  res.json({
-    success: true,
-    count: clients.length,
-    data: clients
-  });
+    res.json({
+      success: true,
+      count: clients.length,
+      data: clients
+    });
+  } catch (error) {
+    res.status(500);
+    throw new Error('Error fetching clients');
+  }
 });
 
 // @desc    Get single client
 // @route   GET /api/clients/:id
 // @access  Private
 export const getClient = asyncHandler(async (req, res) => {
-  const client = await Client.findOne({
-    _id: req.params.id,
-    advisor: req.user._id
-  });
+  try {
+    const client = await Client.findOne({
+      _id: req.params.id,
+      advisor: req.user._id
+    }).populate('portfolios');
 
-  if (!client) {
-    res.status(404);
-    throw new Error('Client not found');
+    if (!client) {
+      res.status(404);
+      throw new Error('Client not found');
+    }
+
+    res.json({
+      success: true,
+      data: client
+    });
+  } catch (error) {
+    res.status(error.kind === 'ObjectId' ? 404 : 500);
+    throw new Error(error.kind === 'ObjectId' ? 'Client not found' : 'Error fetching client');
   }
-
-  res.json({
-    success: true,
-    data: client
-  });
 });
 
 // @desc    Update client

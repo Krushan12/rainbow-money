@@ -1,6 +1,6 @@
 import { createContext, useContext, useState } from 'react';
 import ApiService from '../services/api.service';
-import apiConfig from '../config/api';
+import { useToast } from '../components/ui/use-toast';
 
 const AuthContext = createContext(undefined);
 
@@ -25,23 +25,31 @@ const getStoredUser = () => {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(getStoredUser);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const { toast } = useToast();
   
   const register = async (userData) => {
     setLoading(true);
-    setError(null);
     try {
       const response = await ApiService.register(userData);
       if (response.success) {
-        const { user } = response;
+        const { user, token } = response;
         localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('token', token);
         setUser(user);
+        toast({
+          title: "Success",
+          description: "Registration successful",
+        });
         return { success: true };
       } else {
         throw new Error(response.message || 'Failed to register');
       }
     } catch (error) {
-      setError(error.message);
+      toast({
+        title: "Error",
+        description: error.message || 'Failed to register',
+        variant: "destructive",
+      });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to register'
@@ -53,24 +61,27 @@ export function AuthProvider({ children }) {
 
   const login = async (credentials) => {
     setLoading(true);
-    setError(null);
     try {
       const response = await ApiService.login(credentials);
-      
-      if (response.success && response.data) {
-        // Store the user data
-        localStorage.setItem('user', JSON.stringify(response.data));
-        // Store the token if it's in the response
-        if (response.data.token) {
-          localStorage.setItem('token', response.data.token);
-        }
-        setUser(response.data);
+      if (response.success) {
+        const { user, token } = response;
+        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('token', token);
+        setUser(user);
+        toast({
+          title: "Success",
+          description: "Login successful",
+        });
         return { success: true };
       } else {
         throw new Error(response.message || 'Failed to login');
       }
     } catch (error) {
-      setError(error.message);
+      toast({
+        title: "Error",
+        description: error.message || 'Failed to login',
+        variant: "destructive",
+      });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to login'
@@ -86,15 +97,18 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const value = {
-    user,
-    loading,
-    error,
-    register,
-    login,
-    logout,
-    isAuthenticated: !!user
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        isAuthenticated: !!user,
+        register,
+        login,
+        logout
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }

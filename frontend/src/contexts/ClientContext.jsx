@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import ApiService from '../services/api.service';
 import { useToast } from '../components/ui/use-toast';
+import { useAuth } from './AuthContext';
 
 const ClientContext = createContext(undefined);
 
@@ -17,26 +18,31 @@ export function ClientProvider({ children }) {
   const [selectedClient, setSelectedClient] = useState(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
-  // Fetch clients on mount
+  // Fetch clients only when user is authenticated
   useEffect(() => {
-    fetchClients();
-  }, []);
+    if (user) {
+      fetchClients();
+    }
+  }, [user]);
 
   const fetchClients = async () => {
     try {
       setLoading(true);
       const response = await ApiService.getClients();
       if (response.success) {
-        setClients(response.data);
+        setClients(response.data || []);
       }
     } catch (error) {
       console.error('Failed to fetch clients:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load clients",
-        variant: "destructive",
-      });
+      if (error.message !== 'Not authorized, no token') {
+        toast({
+          title: "Error",
+          description: "Failed to load clients",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -46,22 +52,23 @@ export function ClientProvider({ children }) {
     try {
       setLoading(true);
       const response = await ApiService.createClient(newClient);
-      if (response.success) {
+      if (response.success && response.data) {
         setClients(prev => [...prev, response.data]);
         toast({
           title: "Success",
           description: "Client added successfully",
+          variant: "default",
         });
-        return true;
+        return response.data;
       }
+      throw new Error(response.message || 'Failed to add client');
     } catch (error) {
-      console.error('Failed to add client:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to add client",
         variant: "destructive",
       });
-      return false;
+      throw error;
     } finally {
       setLoading(false);
     }

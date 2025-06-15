@@ -4,9 +4,10 @@ class ApiService {
     static async request(endpoint, options = {}) {
         const url = `${apiConfig.baseURL}${endpoint}`;
         const token = localStorage.getItem('token');
+        
         const headers = {
             'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            ...(token && { 'Authorization': `Bearer ${token}` }),
             ...options.headers
         };
 
@@ -21,20 +22,11 @@ class ApiService {
                 headers
             });
 
-            // Check if the response has content
-            const contentType = response.headers.get('content-type');
             let data;
-            if (contentType && contentType.includes('application/json')) {
+            try {
                 data = await response.json();
-            } else {
-                data = await response.text();
-                try {
-                    // Try to parse it as JSON anyway
-                    data = JSON.parse(data);
-                } catch (e) {
-                    // If it's not JSON, create an error object
-                    data = { success: false, message: data || 'No response from server' };
-                }
+            } catch {
+                data = { success: false, message: 'Invalid response from server' };
             }
 
             console.log('Response:', data);
@@ -47,17 +39,13 @@ class ApiService {
                     localStorage.removeItem('user');
                     // Redirect to login
                     window.location.href = '/auth/login';
-                    throw new Error('Please login to continue');
                 }
-                throw new Error(data.message || data.error || 'API request failed');
+                throw new Error(data.message || 'Request failed');
             }
 
             return data;
         } catch (error) {
             console.error('API request error:', error);
-            if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
-                throw new Error('Unable to connect to the server. Please check if the backend is running.');
-            }
             throw error;
         }
     }

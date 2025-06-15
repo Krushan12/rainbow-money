@@ -11,15 +11,26 @@ const portfolioSchema = new mongoose.Schema({
     required: [true, 'Portfolio name is required'],
     trim: true
   },
-  type: {
+  source: {
     type: String,
-    enum: ['Mutual Fund', 'Equity', 'Fixed Income', 'Mixed'],
+    enum: ['MF_CENTRAL', 'CAMS_PDF', 'MANUAL'],
     required: true
   },
   status: {
     type: String,
     enum: ['Active', 'Inactive'],
     default: 'Active'
+  },
+  lastSync: {
+    type: Date
+  },
+  sourceFile: {
+    fileName: String,
+    uploadDate: Date,
+    fileType: {
+      type: String,
+      enum: ['PDF', 'CSV', 'API']
+    }
   },
   totalInvestment: {
     type: Number,
@@ -33,10 +44,6 @@ const portfolioSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  lastValuationDate: {
-    type: Date,
-    default: Date.now
-  },
   holdings: [{
     scheme: {
       type: mongoose.Schema.Types.ObjectId,
@@ -45,80 +52,55 @@ const portfolioSchema = new mongoose.Schema({
     },
     units: {
       type: Number,
-      required: true,
+      required: true
+    },
+    currentNav: {
+      type: Number,
       default: 0
     },
-    avgCostPrice: {
+    investmentAmount: {
       type: Number,
-      required: true,
-      default: 0
+      required: true
     },
     currentValue: {
       type: Number,
       default: 0
     },
-    profitLoss: {
-      type: Number,
-      default: 0
-    },
-    allocationPercentage: {
-      type: Number,
-      default: 0
+    lastValuationDate: {
+      type: Date,
+      default: Date.now
     }
   }],
-  assetAllocation: {
-    equity: {
-      type: Number,
-      default: 0
+  transactions: [{
+    date: {
+      type: Date,
+      required: true
     },
-    debt: {
-      type: Number,
-      default: 0
+    type: {
+      type: String,
+      enum: ['BUY', 'SELL', 'SWITCH_IN', 'SWITCH_OUT'],
+      required: true
     },
-    gold: {
-      type: Number,
-      default: 0
+    scheme: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Scheme',
+      required: true
     },
-    cash: {
+    units: {
       type: Number,
-      default: 0
+      required: true
     },
-    others: {
+    nav: {
       type: Number,
-      default: 0
+      required: true
+    },
+    amount: {
+      type: Number,
+      required: true
     }
-  },
-  marketCapAllocation: {
-    largeCap: {
-      type: Number,
-      default: 0
-    },
-    midCap: {
-      type: Number,
-      default: 0
-    },
-    smallCap: {
-      type: Number,
-      default: 0
-    }
-  },
-  sectorAllocation: {
-    type: Map,
-    of: Number,
-    default: new Map()
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  lastUpdated: {
-    type: Date,
-    default: Date.now
-  }
+  }]
 }, {
-  timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  timestamps: true
 });
 
 // Virtual for returns calculation

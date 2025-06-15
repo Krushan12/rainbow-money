@@ -16,20 +16,27 @@ const clientSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  accessType: {
+    type: String,
+    enum: ['FULL', 'LIMITED'],
+    default: 'LIMITED',
+    required: true
+  },
   panNumber: {
     type: String,
     trim: true,
     uppercase: true,
     validate: {
       validator: function(v) {
-        if (!v) return true; // Allow empty PAN number
+        if (!v) return true;
         return /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v);
       },
       message: 'Please enter a valid PAN number'
     }
   },
-  dateOfBirth: {
-    type: Date
+  mfCentralAuthorized: {
+    type: Boolean,
+    default: false
   },
   riskProfile: {
     type: String,
@@ -40,18 +47,23 @@ const clientSchema = new mongoose.Schema({
     type: [String],
     default: []
   },
-  portfolioData: {
-    type: mongoose.Schema.Types.Mixed,
-    default: null
+  portfolioSource: {
+    type: String,
+    enum: ['MF_CENTRAL', 'CAMS_PDF', 'MANUAL'],
+    default: 'MANUAL'
+  },
+  lastPortfolioUpdate: {
+    type: Date
+  },
+  advisor: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
   notes: {
     type: String
   },
   lastUpdated: {
-    type: Date,
-    default: Date.now
-  },
-  createdAt: {
     type: Date,
     default: Date.now
   }

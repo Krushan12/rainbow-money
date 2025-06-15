@@ -17,7 +17,7 @@ const formSchema = z.object({
 });
 
 export default function ClientManagement() {
-  const { clients, selectedClient, setSelectedClient, addClient, deleteClient } = useClients();
+  const { clients, loading, selectedClient, setSelectedClient, addClient, deleteClient } = useClients();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const toast = useToast();
 
@@ -30,14 +30,22 @@ export default function ClientManagement() {
   });
 
   const onSubmit = async (values) => {
-    addClient(values);
-    form.reset();
-    setIsAddDialogOpen(false);
-    toast({
-      title: "Success",
-      description: "Client added successfully",
-      variant: "success",
-    });
+    try {
+      await addClient(values);
+      form.reset();
+      setIsAddDialogOpen(false);
+      toast({
+        title: "Success",
+        description: "Client added successfully",
+        variant: "default"
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add client",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -50,66 +58,33 @@ export default function ClientManagement() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <AnimatePresence>
-          {clients.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="col-span-full text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300"
+      {loading ? (
+        <div className="text-center py-8">Loading clients...</div>
+      ) : clients?.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">
+          No clients found. Click "Add Client" to create one.
+        </div>
+      ) : (
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {clients?.map((client) => (
+            <div
+              key={client._id}
+              className={`p-4 rounded-lg border ${
+                selectedClient?._id === client._id ? 'border-primary' : 'border-gray-200'
+              } hover:border-primary cursor-pointer transition-all`}
+              onClick={() => setSelectedClient(client)}
             >
-              <UserIcon className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No clients yet</h3>
-              <p className="mt-1 text-sm text-gray-500">Get started by adding your first client.</p>
-              <div className="mt-6">
-                <Button onClick={() => setIsAddDialogOpen(true)} className="flex items-center gap-2">
-                  <PlusIcon className="w-4 h-4" />
-                  Add Your First Client
-                </Button>
-              </div>
-            </motion.div>
-          ) : (
-            clients.map((client) => (
-              <motion.div
-                key={client.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
-                  selectedClient?.id === client.id
-                    ? 'border-primary bg-primary/5'
-                    : 'border-gray-200 hover:border-primary/50'
-                }`}
-                onClick={() => setSelectedClient(client)}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <UserIcon className="h-6 w-6 text-primary" />
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="font-medium">{client.name}</h3>
-                      <p className="text-sm text-muted-foreground">{client.email}</p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteClient(client.id);
-                    }}
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </Button>
+              <div className="flex items-center gap-3">
+                <UserIcon className="w-8 h-8 text-gray-400" />
+                <div>
+                  <h3 className="font-medium">{client.name}</h3>
+                  <p className="text-sm text-gray-500">{client.email}</p>
                 </div>
-              </motion.div>
-            ))
-          )}
-        </AnimatePresence>
-      </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent>
