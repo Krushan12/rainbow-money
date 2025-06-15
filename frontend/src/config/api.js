@@ -1,4 +1,6 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+    ? 'https://rainbow-money.onrender.com/api'
+    : 'http://localhost:5000/api';
 
 const apiConfig = {
     baseURL: API_BASE_URL,
