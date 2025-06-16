@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useClients } from '../contexts/ClientContext';
+import { usePortfolio } from '../contexts/PortfolioContext';
+import { dummyPortfolioData } from '../data/dummyPortfolioData';
 import { motion } from 'framer-motion';
-import { sampleReport } from '../data/sampleReport';
 import { 
   BarChart2, 
   PieChart, 
   LineChart, 
   Boxes,
   Network,
-  Target
+  Target,
+  AlertCircle
 } from 'lucide-react';
 import FundRanking from '../components/FundPerformance/FundRanking';
 import TopBottomFunds from '../components/FundPerformance/TopBottomFunds';
@@ -23,21 +25,40 @@ import TopHoldings from '../components/EquityAnalysis/TopHoldings';
 export default function ReportDashboard() {
   const { clientId } = useParams();
   const { clients, selectedClient, setSelectedClient } = useClients();
-  const [portfolioData, setPortfolioData] = useState(null);
+  const { portfolioData, fetchPortfolioData, loading } = usePortfolio();
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [error, setError] = useState(null);
   const isClientReport = Boolean(clientId);
   
   useEffect(() => {
-    if (clientId) {
-      const client = clients.find(c => c.id === clientId);
-      if (client) {
-        setSelectedClient(client);
-        setPortfolioData(sampleReport);
+    const loadData = async () => {
+      try {
+        setError(null);
+        
+        if (clientId) {
+          const client = clients?.find(c => c._id === clientId);
+          
+          if (!client) {
+            setError("Please select a valid client to view their report.");
+            return;
+          }
+
+          if (isInitialLoad) {
+            setSelectedClient(client);
+            await fetchPortfolioData();
+            setIsInitialLoad(false);
+          }
+        } else {
+          setSelectedClient(null);
+        }
+      } catch (err) {
+        setError("There was an error loading the report data. Please try again.");
+        console.error("Report data loading error:", err);
       }
-    } else {
-      setSelectedClient(null);
-      setPortfolioData(null);
-    }
-  }, [clientId, clients, setSelectedClient]);
+    };
+
+    loadData();
+  }, [clientId, clients, setSelectedClient, fetchPortfolioData, isInitialLoad]);
 
   const reportFeatures = [
     {
@@ -72,6 +93,9 @@ export default function ReportDashboard() {
     }
   ];
 
+  // Helper function to safely access data
+  const getData = () => portfolioData || dummyPortfolioData;
+
   return (
     <div className="space-y-8">
       <div>
@@ -85,84 +109,108 @@ export default function ReportDashboard() {
         </p>
       </div>
 
-      {isClientReport && portfolioData ? (
-        // Client-specific reports with portfolio data
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-6 rounded-lg border bg-card"
-          >
-            <h3 className="text-lg font-semibold mb-4">Asset Allocation</h3>
-            <AssetAllocationPie data={portfolioData.allocation} />
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-6 rounded-lg border bg-card"
-          >
-            <h3 className="text-lg font-semibold mb-4">Market Cap Distribution</h3>
-            <MarketCapPie data={portfolioData.market_cap} />
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-6 rounded-lg border bg-card"
-          >
-            <h3 className="text-lg font-semibold mb-4">Sector Allocation</h3>
-            <SectorBarChart data={portfolioData.sector_allocation} />
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-6 rounded-lg border bg-card"
-          >
-            <h3 className="text-lg font-semibold mb-4">Risk vs Return</h3>
-            <RiskReturnScatter data={portfolioData.risk_return} />
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-6 rounded-lg border bg-card"
-          >
-            <h3 className="text-lg font-semibold mb-4">Fund Performance</h3>
-            <TopBottomFunds 
-              topPerformers={portfolioData.top_performers} 
-              bottomPerformers={portfolioData.bottom_performers} 
-            />
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-6 rounded-lg border bg-card"
-          >
-            <h3 className="text-lg font-semibold mb-4">Fund Rankings</h3>
-            <FundRanking data={portfolioData.fund_rankings} />
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-6 rounded-lg border bg-card"
-          >
-            <h3 className="text-lg font-semibold mb-4">Portfolio Overlap</h3>
-            <FundOverlapBar data={portfolioData.overlap} />
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-6 rounded-lg border bg-card"
-          >
-            <h3 className="text-lg font-semibold mb-4">Top Holdings</h3>
-            <TopHoldings data={portfolioData.holdings} />
-          </motion.div>
+      {error ? (
+        // Error state
+        <div className="flex flex-col items-center justify-center min-h-[50vh] p-8">
+          <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Unable to Load Report</h2>
+          <p className="text-gray-600 text-center mb-4">{error}</p>
         </div>
+      ) : isClientReport ? (
+        loading ? (
+          // Loading state
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <motion.div
+                key={i}
+                className="p-6 rounded-lg border bg-card"
+              >
+                <div className="animate-pulse">
+                  <div className="h-8 w-48 bg-gray-200 rounded mb-4"></div>
+                  <div className="h-48 bg-gray-200 rounded"></div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          // Client-specific reports with portfolio data
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-6 rounded-lg border bg-card"
+            >
+              <h3 className="text-lg font-semibold mb-4">Asset Allocation</h3>
+              <AssetAllocationPie data={getData().allocation} />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-6 rounded-lg border bg-card"
+            >
+              <h3 className="text-lg font-semibold mb-4">Market Cap Distribution</h3>
+              <MarketCapPie data={getData().market_cap} />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-6 rounded-lg border bg-card"
+            >
+              <h3 className="text-lg font-semibold mb-4">Sector Allocation</h3>
+              <SectorBarChart data={getData().sector_allocation} />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-6 rounded-lg border bg-card"
+            >
+              <h3 className="text-lg font-semibold mb-4">Risk vs Return</h3>
+              <RiskReturnScatter data={getData().risk_return} />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-6 rounded-lg border bg-card"
+            >
+              <h3 className="text-lg font-semibold mb-4">Fund Performance</h3>
+              <TopBottomFunds 
+                topPerformers={getData().top_performers} 
+                bottomPerformers={getData().bottom_performers} 
+              />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-6 rounded-lg border bg-card"
+            >
+              <h3 className="text-lg font-semibold mb-4">Fund Rankings</h3>
+              <FundRanking data={getData().fund_rankings} />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-6 rounded-lg border bg-card"
+            >
+              <h3 className="text-lg font-semibold mb-4">Portfolio Overlap</h3>
+              <FundOverlapBar data={getData().overlap} />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-6 rounded-lg border bg-card"
+            >
+              <h3 className="text-lg font-semibold mb-4">Top Holdings</h3>
+              <TopHoldings data={getData().top_holdings} />
+            </motion.div>
+          </div>
+        )
       ) : (
         // Main reports page with features overview
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

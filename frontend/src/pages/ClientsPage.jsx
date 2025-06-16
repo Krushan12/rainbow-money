@@ -77,9 +77,8 @@ export default function ClientsPage() {
         break;
       case 'dashboard':
         navigate(`/clients/${client._id}/dashboard`);
-        break;
-      case 'report':
-        navigate(`/clients/${client._id}/report`);
+        break;      case 'report':
+        navigate(`/reports/${client._id}`);
         break;
       case 'delete':
         setDeleteDialogClient(client);

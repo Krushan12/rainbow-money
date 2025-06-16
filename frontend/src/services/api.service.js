@@ -1,7 +1,17 @@
 import apiConfig, { getAuthHeader } from '../config/api';
+import { dummyPortfolioData } from '../data/dummyPortfolioData';
+
+// Development flag to use dummy data instead of real API
+const USE_DUMMY_DATA = true; // Set to false in production
 
 class ApiService {
     static async request(endpoint, options = {}) {
+        // If we're using dummy data and this is a portfolio data request, return dummy data
+        if (USE_DUMMY_DATA && endpoint.includes('/portfolio')) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+            return { success: true, data: dummyPortfolioData };
+        }
+
         const url = `${apiConfig.baseURL}${endpoint}`;
         const token = localStorage.getItem('token');
         
@@ -95,6 +105,30 @@ class ApiService {
         return this.request(`${apiConfig.endpoints.clients}/${clientId}`, {
             method: 'DELETE'
         });
+    }
+
+    // Portfolio overview
+    static async getPortfolioOverview() {
+        try {
+            return await this.request('/portfolio/overview', {
+                method: 'GET'
+            });
+        } catch (error) {
+            console.error('Failed to fetch portfolio overview:', error);
+            return { success: false, message: error.message };
+        }
+    }
+
+    // Client portfolio data
+    static async getClientPortfolioData(clientId) {
+        try {
+            return await this.request(`/portfolio/${clientId}`, {
+                method: 'GET'
+            });
+        } catch (error) {
+            console.error('Failed to fetch client portfolio data:', error);
+            return { success: false, message: error.message };
+        }
     }
 }
 
