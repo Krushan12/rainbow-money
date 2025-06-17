@@ -32,13 +32,13 @@ function App() {
                       <DashboardLayout />
                     </PrivateRoute>
                   }
-                >                  <Route index element={<DashboardPage />} />
+                >
+                  <Route index element={<DashboardPage />} />
                   <Route path="reports" element={<ReportDashboard />} />
-                  <Route path="reports/:clientId" element={<ReportDashboard />} />
                   <Route path="settings" element={<SettingsPage />} />
                   <Route path="clients" element={<ClientsPage />} />
                   <Route path="clients/:clientId/dashboard" element={<ClientDashboard />} />
-                  <Route path="clients/:clientId/report" element={<ReportDashboard />} />
+                  <Route path="clients/:clientId/report" element={<ClientReportDashboard />} />
                 </Route>
 
                 {/* Redirect any unknown routes to auth */}

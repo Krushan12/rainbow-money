@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { dummyPortfolioData } from '../data/dummyPortfolioData';
 import { useParams } from 'react-router-dom';
 import { useClients } from '../contexts/ClientContext';
 import { usePortfolio } from '../contexts/PortfolioContext';
@@ -54,8 +53,7 @@ export default function ClientReportDashboard() {
     loadData();
   }, [clientId, clients, setSelectedClient, fetchPortfolioData, isInitialLoad]);
 
-  // Use dummy data for now
-  const displayData = portfolioData || dummyPortfolioData;
+  const displayData = portfolioData;
 
   // Show error state if there's an error
   if (error) {

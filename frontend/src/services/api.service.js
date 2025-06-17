@@ -1,8 +1,9 @@
 import apiConfig, { getAuthHeader } from '../config/api';
 import { dummyPortfolioData } from '../data/dummyPortfolioData';
+import axios from 'axios';
 
 // Development flag to use dummy data instead of real API
-const USE_DUMMY_DATA = true; // Set to false in production
+const USE_DUMMY_DATA = false;
 
 class ApiService {
     static async request(endpoint, options = {}) {
@@ -89,6 +90,27 @@ class ApiService {
         });
     }
 
+    static async uploadPortfolioPDF(formData, onUploadProgress) {
+        const token = localStorage.getItem('token');
+        try {
+            const response = await axios.post(
+                `${apiConfig.baseURL}/upload`,
+                formData,
+                {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                        ...token && { 'Authorization': `Bearer ${token}` }
+                    },
+                    onUploadProgress
+                }
+            );
+            return response.data;
+        } catch (error) {
+            console.error('Upload error:', error);
+            throw new Error(error.response?.data?.message || 'Failed to upload file');
+        }
+    }
+
     // Client endpoints
     static async createClient(clientData) {
         return this.request(apiConfig.endpoints.clients, {
@@ -102,7 +124,7 @@ class ApiService {
     }
 
     static async deleteClient(clientId) {
-        return this.request(`${apiConfig.endpoints.clients}/${clientId}`, {
+        return await this.request(`/clients/${clientId}`, {
             method: 'DELETE'
         });
     }

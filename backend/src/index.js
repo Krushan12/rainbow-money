@@ -61,6 +61,7 @@ import authRoutes from './routes/auth.routes.js';
 import clientRoutes from './routes/client.routes.js';
 import portfolioRoutes from './routes/portfolio.routes.js';
 import analysisRoutes from './routes/analysis.routes.js';
+import uploadRoutes from './routes/upload.routes.js';
 
 // Health check route with DB status
 app.get('/health', async (req, res) => {
@@ -86,6 +87,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/portfolios', portfolioRoutes);
 app.use('/api/analysis', analysisRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

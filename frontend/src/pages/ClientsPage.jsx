@@ -4,6 +4,7 @@ import { useClients } from '../contexts/ClientContext';
 import { useAuth } from '../contexts/AuthContext';
 import ClientCard from '../components/Dashboard/ClientCard';
 import ClientCardSkeleton from '../components/Dashboard/ClientCardSkeleton';
+import ImportedClientCard from '../components/Dashboard/ImportedClientCard';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Button } from '../components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../components/ui/form";
@@ -13,7 +14,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from '../components/ui/use-toast';
-import { Plus, Users } from 'lucide-react';
+import { Plus, Users, Upload } from 'lucide-react';
+import UploadPortfolioDialog from '../components/Upload/UploadPortfolioDialog';
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -29,10 +31,11 @@ const formSchema = z.object({
 
 export default function ClientsPage() {
   const navigate = useNavigate();
-  const { clients, loading, addClient, removeClient } = useClients();
+  const { clients, loading, addClient, deleteClient } = useClients();
   const { user } = useAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [deleteDialogClient, setDeleteDialogClient] = useState(null);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const form = useForm({
@@ -65,20 +68,22 @@ export default function ClientsPage() {
   };
 
   const handleAction = async (action, client) => {
+    // If client is imported (has portfolioData), only allow overview and delete
+    if (client.portfolioData) {
+      if (action === 'delete') {
+        setDeleteDialogClient(client);
+      }
+      // Ignore other actions for imported clients
+      return;
+    }
+
+    // For regular clients, allow all actions
     switch (action) {
-      case 'upload':
-        if (client.accessType === 'FULL') {
-          // Navigate to MF Central integration page
-          navigate(`/clients/${client._id}/integrate`);
-        } else {
-          // Navigate to PDF upload page
-          navigate(`/clients/${client._id}/upload`);
-        }
-        break;
       case 'dashboard':
         navigate(`/clients/${client._id}/dashboard`);
-        break;      case 'report':
-        navigate(`/reports/${client._id}`);
+        break;
+      case 'report':
+        navigate(`/clients/${client._id}/report`);
         break;
       case 'delete':
         setDeleteDialogClient(client);
@@ -88,7 +93,7 @@ export default function ClientsPage() {
 
   const handleDelete = async () => {
     try {
-      await removeClient(deleteDialogClient._id);
+      await deleteClient(deleteDialogClient._id);
       toast({
         title: "Success",
         description: "Client deleted successfully",
@@ -105,6 +110,27 @@ export default function ClientsPage() {
 
   const watchAccessType = form.watch("accessType");
 
+  const renderClientCard = (client) => {
+    // If client was imported via PDF (has portfolioData), use ImportedClientCard
+    if (client.portfolioData) {
+      return (
+        <ImportedClientCard
+          key={client._id}
+          client={client}
+          onAction={handleAction}
+        />
+      );
+    }
+    // Otherwise use regular ClientCard
+    return (
+      <ClientCard
+        key={client._id}
+        client={client}
+        onAction={handleAction}
+      />
+    );
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
@@ -112,10 +138,16 @@ export default function ClientsPage() {
           <h1 className="text-2xl font-bold">Clients</h1>
           <p className="text-gray-600">Manage your client portfolios</p>
         </div>
-        <Button onClick={() => setIsAddDialogOpen(true)} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Add Client
-        </Button>
+        <div className="flex gap-3">
+          <Button onClick={() => setIsUploadDialogOpen(true)} variant="outline" className="flex items-center gap-2">
+            <Upload className="w-4 h-4" />
+            Import from PDF
+          </Button>
+          <Button onClick={() => setIsAddDialogOpen(true)} className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Add Client
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -138,13 +170,7 @@ export default function ClientsPage() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {clients.map((client) => (
-            <ClientCard
-              key={client._id}
-              client={client}
-              onAction={handleAction}
-            />
-          ))}
+          {clients.map(client => renderClientCard(client))}
         </div>
       )}
 
@@ -276,6 +302,12 @@ export default function ClientsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Upload Portfolio Dialog */}
+      <UploadPortfolioDialog
+        open={isUploadDialogOpen}
+        onOpenChange={setIsUploadDialogOpen}
+      />
     </div>
   );
 }

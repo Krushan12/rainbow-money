@@ -3,6 +3,18 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 const COLORS = ['#0088FE', '#FF8042'];
 
 export default function DomesticGlobalSplit({ data }) {
+  // If data is not provided or not an array, show default/empty state
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return (
+      <div className="bg-white p-4 rounded-xl shadow">
+        <h3 className="text-lg font-semibold mb-4">Domestic vs Global Equity</h3>
+        <div className="h-[250px] flex items-center justify-center text-gray-500">
+          No data available
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white p-4 rounded-xl shadow">
       <h3 className="text-lg font-semibold mb-4">Domestic vs Global Equity</h3>

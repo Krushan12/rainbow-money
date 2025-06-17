@@ -51,12 +51,18 @@ export function ClientProvider({ children }) {
   const addClient = async (newClient) => {
     try {
       setLoading(true);
-      const response = await ApiService.createClient(newClient);
+      // If client has portfolioData, it's from PDF upload
+      const isImported = !!newClient.portfolioData;
+      const response = await ApiService.createClient({
+        ...newClient,
+        source: isImported ? 'PDF_IMPORT' : 'MANUAL',
+      });
+      
       if (response.success && response.data) {
         setClients(prev => [...prev, response.data]);
         toast({
           title: "Success",
-          description: "Client added successfully",
+          description: isImported ? "Client imported successfully" : "Client added successfully",
           variant: "default",
         });
         return response.data;
@@ -118,8 +124,7 @@ export function ClientProvider({ children }) {
     loading,
     setSelectedClient,
     addClient,
-    removeClient: deleteClient, // expose as removeClient to match the component expectations
-    deleteClient, // keep original for backward compatibility
+    deleteClient,
     updateClientPortfolio
   };
 

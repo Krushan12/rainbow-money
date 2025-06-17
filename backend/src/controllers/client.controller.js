@@ -164,7 +164,7 @@ export const updateClient = asyncHandler(async (req, res) => {
 // @route   DELETE /api/clients/:id
 // @access  Private
 export const deleteClient = asyncHandler(async (req, res) => {
-  const client = await Client.findOne({
+  const client = await Client.findOneAndDelete({
     _id: req.params.id,
     advisor: req.user._id
   });
@@ -173,8 +173,6 @@ export const deleteClient = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('Client not found');
   }
-
-  await client.remove();
 
   res.json({
     success: true,
